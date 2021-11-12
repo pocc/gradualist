@@ -18,7 +18,6 @@ compile_options = {
     "go": ["go build temp.go", COMPILED_FILE],
     "java": ["javac temp.java", "java " + COMPILED_FILE],
     "rust": ["rustc temp.rs", COMPILED_FILE],
-    "r": ["r -f temp"],
     "javascript": ["node temp"]
 }
 
@@ -43,37 +42,42 @@ def run_code_snippet(args_str: str, script: str):
     compile_args = args_str.split(' ')
 
     # If we're given only language hint, assume that $language $file will work
+    lang = compile_args[0]
+    compile_step = lang in compile_options and len(compile_options[lang]) == 2
+
     if len(compile_args) == 1:
-        if compile_args[0] in compile_options.keys():
-            lang = compile_args[0]
+        if compile_step:
             args_str = compile_options[lang][0]
             temp_file = re.search(r'(temp\.\w+)', args_str)
             if temp_file:
                 with open(temp_file[1], 'w') as f:
                     f.write(script)
             args = args_str.split(' ')
-            # Compile code if it's 1 of 2 steps
-            if len(compile_options[lang]) == 2:
-                child = sp.run(args, stdout=sp.PIPE, stderr=sp.PIPE)
-                if child.returncode != 0:
-                    output = (child.stdout + child.stderr).decode()
-                    print("Problem compiling code", output)
-                # Next set of args for 2nd command
-                cmd_str = compile_options[lang][1]
-                executable_path = os.path.join(os.getcwd(), COMPILED_FILE)
-                os.chmod(executable_path, 0o774)  # chmod a+x
-                # Issues with java bc java temp works, but not if temp is
-                # referred to by its absolute filepath; `java temp.class` fails
-                if ' ' in cmd_str:
-                    args = cmd_str.split(' ')
-                else:
-                    args = [executable_path]
+            # Compile code as first step
+            child = sp.run(args, stdout=sp.PIPE, stderr=sp.PIPE)
+            if child.returncode != 0:
+                output = (child.stdout + child.stderr).decode()
+                print("Problem compiling code", output)
+            # Next set of args for 2nd command
+            cmd_str = compile_options[lang][1]
+            executable_path = os.path.join(os.getcwd(), COMPILED_FILE)
+            os.chmod(executable_path, 0o774)  # chmod a+x
+            # Issues with java bc java temp works, but not if temp is
+            # referred to by its absolute filepath; `java temp.class` fails
+            if ' ' in cmd_str:
+                args = cmd_str.split(' ')
+            else:
+                args = [executable_path]
             output = run_cmd(args, tempf)
             return output
         else:
             tempf.write(bytes(script, encoding='utf8'))
             tempf.seek(0)
             compile_args += [tempf.name]  # Run this language against temp file
+            if lang in compile_options:
+                compile_str = compile_options[lang][0]
+                compile_str = compile_str.replace('temp', tempf.name)
+                compile_args = compile_str.split(' ')
             return run_cmd(compile_args, tempf)
     else:
         files = re.findall(r"{(.*)}", args_str)

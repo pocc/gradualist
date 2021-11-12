@@ -152,10 +152,14 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
         code_lines = code.count('\n')
         ans = ""
         if not QUIET_FLAG:
-            yn = "Enter ✅ | [b]ack ⬆️  | [s]kip ❌"
-            print(f"{step_num} Run {code_lines} lines of {cmd} {yn}? ")
+            yn = "                    Enter ✅ | [b]ack ⬆️  | [s]kip ❌ "
+            print(f"{step_num} Run {code_lines} lines of {cmd} {yn} ")
             ans = getchar()
-        if QUIET_FLAG or not ans.startswith("s"):
+        if ans == 's':
+            skipping = True
+        elif ans == "b" or ord(ans) == 127:
+            back_one_step = True
+        if ans in ['\n', '\r'] or QUIET_FLAG:
             was_task_completed = True
             try:
                 output = run_code_snippet(cmd_options_str, code)
@@ -176,10 +180,14 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
             shell = "your shell"
         ans = ""
         if not QUIET_FLAG:
-            yn = "Enter ✅ | [b]ack ⬆️  | [s]kip ❌"
-            print(f"{step_num} {cmd}\n\n    Run this in {shell} {yn}? ")
+            yn = "                    Enter ✅ | [b]ack ⬆️  | [s]kip ❌ "
+            print(f"{step_num} {cmd}\n\n    Run this in {shell} {yn} ")
             ans = getchar()
-        if not ans.startswith("s"):
+        if ans == 's':
+            skipping = True
+        elif ans == "b" or ord(ans) == 127:
+            back_one_step = True
+        if ans in ['\n', '\r'] or QUIET_FLAG:
             was_task_completed = True
             try:
                 child = sp.run(cmd.split(' '), stdout=sp.PIPE, stderr=sp.PIPE)
@@ -190,8 +198,8 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
     else:
         ans = ""
         if not QUIET_FLAG:
-            keys = "Enter ✅ | [b]ack ⬆️  | [s]kip ❌ | "
-            print(f"""{step}        {keys}""")
+            keys = "                    Enter ✅ | [b]ack ⬆️  | [s]kip ❌ "
+            print(f"""{step}{keys}""")
             while ans not in ["b", "s", "\n", "\r"]:
                 ans = getchar()
         if ans in ['\n', '\r']:
