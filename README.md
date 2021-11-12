@@ -12,6 +12,11 @@ Inspired by https://blog.danslimmon.com/2019/07/15/
 * Saves results into another markdown file
 * On 100% automated, saves results into a script file instead
 
+### Ancillary features
+
+* Sublists are marked like 1.1.3 (first step, first substep, third sub-substep)
+* Go back one step
+
 ## Keywords
 
 All keywords are case insensitive.
@@ -34,6 +39,7 @@ Using these words also makes it clearer what you want your user to do.
     2. In steps after previous, `{response}` will be replaced whatever you entered.
     3. If a `{variable}` isn't provided, words after Describe are the variable
     4. Type enter twice to signify the end of input
+    5. Starting with a question word or including a ? will force a step to be a multiline answer
 3. Run: *runs code*
     Synonyms that trigger: Exec, Execute
     1. Run this inline `echo shell script`
@@ -61,12 +67,14 @@ Using these words also makes it clearer what you want your user to do.
     * While condition, keep on doing it
 5. For: *Loops over array*
     * Format is 'For [el1, el2, ...], do task'
-    * Example: "For ["blue", "orange", "yellow"]
+    * Example: "For ["blue", "orange", "yellow"], use {} marker in your drawing
+    * Generates array-length tasks
 6. If: Conditional
     Synonym for else: Otherwise, elsewise
     Synonym for then: First comma
     * Format is 'if condition then task1 else task2'
-    * Example: "if it's sunny, then have a picnic else read a book inside"
+    * Example: "if it's sunny, then I'll have a picnic else I'll read a book inside"
+        * Variable its_sunny would get a value
 7. Click: *Have the user click somewhere*
     * This can be automated with clicking with x,y coordinates
     * Use the browser extension to select the element
@@ -85,9 +93,11 @@ Using these words also makes it clearer what you want your user to do.
       possible, so don't require keywords
     * There won't be any suggestions for automation
 
+On 100% automated, saves results into a script file instead
+
 ### Anywhere keywords
 
-* **Personal**: Input is entered as a password (i.e. Enter your personal password)
+* **Personal**: Input is entered with no visible output like a password (i.e. Enter your personal password)
 
 ### Defaults
 
