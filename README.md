@@ -1,4 +1,4 @@
-# Gradualism
+# Gradualist
 
 Gradually automate your procedures, one step at a time
 

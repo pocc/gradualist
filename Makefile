@@ -2,7 +2,6 @@
 .PHONY: all test clean
 
 clean:
-	Test*
-
+	rm temp*
 test:
 	python3 tests/test_code_fences.py
