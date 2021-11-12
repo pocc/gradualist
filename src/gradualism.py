@@ -39,6 +39,7 @@ def get_dt_now():
 def parse_md():
     with open(sys.argv[1]) as f:
         text = f.read()
+    text = re.sub(r"\* \[.\]", "1.", text)  # Remove checkboxes
     text_lines = list(filter(None, text.split('\n')))
     # {"script name": ["1. instruction", "2. instruction", ...], ...}
     scripts = {}
@@ -91,6 +92,9 @@ def getchar():
     if ord(ch) == 3 or ord(ch) == 4:
         print(f'^{chr(ord(ch)+64)}')
         quit()  # handle ctrl+C or ctrl+D
+    if ch.lower() == 'q':
+        print("Exiting...")
+        quit()
     return ch
 
 
@@ -145,9 +149,10 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
         code_lines = code.count('\n')
         ans = ""
         if not QUIET_FLAG:
-            yn = "[enter => yes; n => no]"
-            ans = input(f"{step_num} Run {code_lines} lines of {cmd} {yn}? ")
-        if QUIET_FLAG or not ans.startswith("n"):
+            yn = "Enter ✅ | [b]ack ⬆️  | [s]kip ❌"
+            print(f"{step_num} Run {code_lines} lines of {cmd} {yn}? ")
+            ans = getchar()
+        if QUIET_FLAG or not ans.startswith("s"):
             try:
                 output = run_code_snippet(cmd_options_str, code)
                 print("Received:", output)
@@ -169,9 +174,10 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
             shell = "your shell"
         ans = ""
         if not QUIET_FLAG:
-            yn = "[enter => yes; n => no]"
-            ans = input(f"{step_num} {cmd}\n\n    Run this in {shell} {yn}? ")
-        if not ans.startswith("n"):
+            yn = "Enter ✅ | [b]ack ⬆️  | [s]kip ❌"
+            print(f"{step_num} {cmd}\n\n    Run this in {shell} {yn}? ")
+            ans = getchar()
+        if not ans.startswith("s"):
             try:
                 child = sp.run(cmd.split(' '), stdout=sp.PIPE, stderr=sp.PIPE)
                 output = child.stdout + child.stderr
@@ -183,7 +189,7 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
     else:
         ans = ""
         if not QUIET_FLAG:
-            keys = "⏎  Confirm ⬇ | [b]ack ⬆ | [s]kip ➨"
+            keys = "Enter ✅ | [b]ack ⬆️  | [s]kip ❌ | "
             print(f"""{step}        {keys}""")
             while ans not in ["b", "s", "\n", "\r"]:
                 ans = getchar()
@@ -215,15 +221,26 @@ def main():
     sections = parse_md()
     for section in sections:
         section_str = section + '\n' + '=' * len(section) + "\n"
-        print(section_str)
+        print(section_str + "[q]uit 🚪\n")
 
         user_vars = {}
         done_steps = []
         i = 0
+        step_num = 0
         while i < len(sections[section]):
             step = sections[section][i]
+            step_num_mat = re.search(r"(\d+)", step)
+            if step_num_mat:
+                new_step_num = int(step_num_mat[1])
+                if new_step_num >= step_num:
+                    step_num = new_step_num
+                else:  # Step numbers should not be decreasing
+                    break
             done_steps, back = parse_step(step, user_vars, done_steps, hasq)
             if back:
+                # All numbers up to this poit have been increasing
+                # So resetting it to 0 won't cause a section skip
+                step_num = 0
                 done_steps.pop()
                 if i > 0:
                     done_steps.pop()
