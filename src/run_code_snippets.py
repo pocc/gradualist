@@ -7,8 +7,6 @@ import subprocess as sp
 import re
 import tempfile
 import os
-import glob
-
 
 # Command line flags to run a temp file.
 # Many languages require their file extension
@@ -71,8 +69,6 @@ def run_code_snippet(args_str: str, script: str):
                 else:
                     args = [executable_path]
             output = run_cmd(args, tempf)
-            for f in glob.glob("temp*"):
-                os.remove(f)
             return output
         else:
             tempf.write(bytes(script, encoding='utf8'))

@@ -17,6 +17,7 @@ import getpass
 import sys
 import tty
 import termios
+import glob
 
 from run_code_snippets import run_code_snippet
 
@@ -127,6 +128,7 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
         var_name = var_matches[1].replace(' ', '_').lower()
         var_name = re.sub(r"[^A-Za-z0-9_]*", "", var_name)
         user_vars[var_name] = value
+        was_task_completed = True
     elif describe_matches:
         print(f"\n{step}        ⏎ ⏎ when done\n")
         lines = []
@@ -139,6 +141,7 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
         desc = describe_matches[1].replace(' ', '_').lower()
         desc = re.sub(r"[^A-Za-z0-9_]*", "", desc)
         user_vars[desc] = '\n'.join(lines)
+        was_task_completed = True
     elif code_block:
         indent = code_block[1]
         cmd_options_str = code_block[2]
@@ -153,13 +156,12 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
             print(f"{step_num} Run {code_lines} lines of {cmd} {yn}? ")
             ans = getchar()
         if QUIET_FLAG or not ans.startswith("s"):
+            was_task_completed = True
             try:
                 output = run_code_snippet(cmd_options_str, code)
                 print("Received:", output)
             except Exception as e:
                 print("Got exception when trying to run code: ", e)
-        elif "optional" not in step.lower():
-            was_task_completed = False
     elif shell_command:
         cmd = shell_command[1]
         # replace shell vars if they are env vars
@@ -178,14 +180,13 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
             print(f"{step_num} {cmd}\n\n    Run this in {shell} {yn}? ")
             ans = getchar()
         if not ans.startswith("s"):
+            was_task_completed = True
             try:
                 child = sp.run(cmd.split(' '), stdout=sp.PIPE, stderr=sp.PIPE)
                 output = child.stdout + child.stderr
                 print("Received", output)
             except Exception as e:
                 print("Got exception when trying to run code: ", e)
-        elif "optional" not in step.lower():
-            was_task_completed = False
     else:
         ans = ""
         if not QUIET_FLAG:
@@ -219,11 +220,23 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
 def main():
     hasq = '-q' in sys.argv
     sections = parse_md()
+    text_to_write = ""
+    resultant_filename = ""
+    top_heading = True
+    user_vars = {}
     for section in sections:
-        section_str = section + '\n' + '=' * len(section) + "\n"
-        print(section_str + "[q]uit 🚪\n")
+        section_str = section + '\n' + '=' * len(section)
+        print(section_str, end='')
+        if top_heading:
+            print("\n[q]uit 🚪\n")
+            section_words = section.split(' ', 1)[1]
+            sect_date = section_words + get_dt_now()
+            sect_date = sect_date.replace(' ', '_')
+            resultant_filename = re.sub(r"[^A-Za-z0-9-_]", "", sect_date)
+            top_heading = False
+        else:
+            print("\n")
 
-        user_vars = {}
         done_steps = []
         i = 0
         step_num = 0
@@ -247,26 +260,32 @@ def main():
                     i -= 1
             else:
                 i += 1
-        section_words = section.split(' ', 1)[1]
-        sect_date = section_words + get_dt_now()
-        frontmatter = "---"
-        for key in user_vars:
-            if "personal" not in key:
-                frontmatter += f"\n{key}: "
-                data = user_vars[key]
-                if '\n' in data:
-                    data = data.replace('\n', '\n  ')
-                    frontmatter += f'>\n  {data}'  # For multiline YAML
-                else:
-                    frontmatter += f"\"{data}\""
-        frontmatter += "\n---\n\n"
-        sect_date = sect_date.replace(' ', '_')
-        sanitized_section = re.sub(r"[^A-Za-z0-9-_]", "", sect_date)
         if done_steps:  # Don't create files for headings with no steps
-            done_steps = [re.sub(r"#+", "#", section) + '\n'] + done_steps
-            with open(sanitized_section + ".md", 'w') as f:
-                content = frontmatter + '\n'.join(done_steps)
-                f.write(content)
+            done_steps = ['\n' + section + '\n'] + done_steps
+            text_to_write += '\n'.join(done_steps)
+    frontmatter = "---"
+    for key in user_vars:
+        if "personal" not in key:
+            frontmatter += f"\n{key}: "
+            data = user_vars[key]
+            if '\n' in data:
+                data = data.replace('\n', '\n  ')
+                frontmatter += f'>\n  {data}'  # For multiline YAML
+            else:
+                frontmatter += f"\"{data}\""
+    frontmatter += "\n---\n"
+    text_to_write = frontmatter + text_to_write
+
+    with open(resultant_filename + ".md", 'w') as f:
+        f.write(text_to_write)
 
 
-main()
+def cleanup():  # Remove detritus, esp on ^C
+    for f in glob.glob("temp*"):
+        os.remove(f)
+
+
+try:
+    main()
+finally:
+    cleanup()
