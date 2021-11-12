@@ -18,6 +18,7 @@ import sys
 import tty
 import termios
 import glob
+from pathlib import Path
 
 from run_code_snippets import run_code_snippet
 
@@ -38,8 +39,15 @@ def get_dt_now():
 
 
 def parse_md():
-    with open(sys.argv[1]) as f:
-        text = f.read()
+    text = ""
+    for source_md in sys.argv[1:]:
+        source_path = os.path.abspath(source_md)
+        if os.path.exists(source_path):
+            print("Opening", source_path)
+            with open(source_md) as f:
+                text += f.read()
+        else:
+            print("File not found", source_path)
     text = re.sub(r"\* \[.\]", "1.", text)  # Remove checkboxes
     text_lines = list(filter(None, text.split('\n')))
     # {"script name": ["1. instruction", "2. instruction", ...], ...}
@@ -229,7 +237,7 @@ def main():
     hasq = '-q' in sys.argv
     sections = parse_md()
     text_to_write = ""
-    resultant_filename = ""
+    output_file = ""
     top_heading = True
     user_vars = {}
     for section in sections:
@@ -240,7 +248,7 @@ def main():
             section_words = section.split(' ', 1)[1]
             sect_date = section_words + get_dt_now()
             sect_date = sect_date.replace(' ', '_')
-            resultant_filename = re.sub(r"[^A-Za-z0-9-_]", "", sect_date)
+            output_file = re.sub(r"[^A-Za-z0-9-_]", "", sect_date) + ".md"
             top_heading = False
         else:
             print("\n")
@@ -284,7 +292,12 @@ def main():
     frontmatter += "\n---\n"
     text_to_write = frontmatter + text_to_write
 
-    with open(resultant_filename + ".md", 'w') as f:
+    home = str(Path.home())
+    log_dir = os.path.join(home, 'log')
+    if not os.path.exists('log'):
+        os.makedirs(log_dir, exist_ok=True)
+    output_path = os.path.join(log_dir, output_file)
+    with open(output_path, 'w') as f:
         f.write(text_to_write)
 
 
