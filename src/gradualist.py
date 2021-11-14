@@ -34,8 +34,23 @@ else:
     os.system('clear')
 
 
+COMMAND_KEYS = ["\n", "\r", "s", "b", "q"]
+
+
 def get_dt_now():
     return str(datetime.datetime.now())[:19]
+
+
+def prettify_date_diff(date_str):
+    """replace 0 in date diff with ' ', strip mantissa"""
+    time_taken = date_str.split('.')[0]
+    time_taken_mat = re.match(r"^[0:]+", time_taken)
+    if time_taken_mat:
+        zeros = time_taken_mat[0]
+        time_taken = time_taken.replace(zeros, len(zeros) * " ")
+        if time_taken[-1] == " ":
+            time_taken = time_taken[:-1] + "0"
+    return time_taken
 
 
 def parse_md():
@@ -43,7 +58,7 @@ def parse_md():
     for source_md in sys.argv[1:]:
         source_path = os.path.abspath(source_md)
         if os.path.exists(source_path):
-            print("Opening", source_path)
+            print(source_path, end='\n\n')
             with open(source_md) as f:
                 text += f.read()
         else:
@@ -71,10 +86,11 @@ def parse_md():
         elif substep_match:
             indents = substep_match[1]
             indent_level = indents.replace('\t', '    ').count('    ')
+            # step 1. under a step 1. becomes 1.1., which is the sublist_path
             altered_path_list = sublist_path.split('.')[:indent_level]
             altered_path_list += [substep_match[2]]
             sublist_path = '.'.join(altered_path_list)
-            sublist_total = substep_match[1] + sublist_path + substep_match[3]
+            sublist_total = sublist_path + substep_match[3]
             scripts[current_heading].append(sublist_total)
         # Add to last element in list if in a step
         elif current_step:
@@ -107,10 +123,27 @@ def getchar():
     return ch
 
 
+def get_multiline_input():
+    """Get multiple lines. Quits on "\n\n" """
+    print("Type \\n\\n when done.\n")
+    lines = []
+    while True:  # Add lines until \n\n
+        print("        ", end='')
+        line = input()
+        if line:
+            lines.append(line)
+        else:
+            break
+    return '\n'.join(lines)
+
+
 def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
     was_task_completed = False
     back_one_step = False
     skipping = False
+    paragraphs = []
+    step_num = "1."
+    time_start = datetime.datetime.now()
 
     for v in user_vars:  # Replace future occurences of user vars
         step = step.replace('{' + v + '}', user_vars[v])
@@ -121,7 +154,6 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
     shell_command = re.search(r'Run[\s\S]*?`\ ?([^`]+)`', step, re.IGNORECASE)
     code_block = re.search(r'Run[\s\S]*?( *)```(.+)([\s\S]+?)```', step)
     step_number_match = re.match(r"(\d+\.)", step)
-    step_num = "1."
     if step_number_match:
         step_num = step_number_match[1]
     # If someone asks a question, they expect an answer
@@ -138,17 +170,11 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
         user_vars[var_name] = value
         was_task_completed = True
     elif describe_matches:
-        print(f"\n{step}        ⏎ ⏎ when done\n")
-        lines = []
-        while True:  # Add lines until \n\n
-            line = input()
-            if line:
-                lines.append(line)
-            else:
-                break
+        print(f"\n{step}")
+        multiline_input = get_multiline_input()
         desc = describe_matches[1].replace(' ', '_').lower()
         desc = re.sub(r"[^A-Za-z0-9_]*", "", desc)
-        user_vars[desc] = '\n'.join(lines)
+        user_vars[desc] = multiline_input
         was_task_completed = True
     elif code_block:
         indent = code_block[1]
@@ -206,36 +232,55 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
     else:
         ans = ""
         if not QUIET_FLAG:
-            keys = "                    Enter ✅ | [b]ack ⬆️  | [s]kip ❌ "
-            print(f"""{step}{keys}""")
-            while ans not in ["b", "s", "\n", "\r"]:
+            step_text = f"""{step}\n    {get_dt_now()[11:]}      Started"""
+            print(step_text)
+            while ans not in COMMAND_KEYS:
                 ans = getchar()
+                if ans == 'h':
+                    print("Help is on the way...")
+                if ans == 'l':
+                    paragraphs.append("* [ ] " + input("\n    Log a thought\n        "))
+                    print(step_text)
+                if ans == 't':
+                    new_tangent = "* [ ] " + input("\n    What's distracting?\n        ") + "\n"
+                    home = str(Path.home())
+                    tangent_file = os.path.join(home, 'log', 'tangent.md')
+                    with open(tangent_file, 'a') as f:
+                        f.write(new_tangent)
+                    print("    Added tangent to", tangent_file)
+                    print(step_text)
         if ans in ['\n', '\r']:
             was_task_completed = True
         elif ans == "b" or ord(ans) == 127:
             back_one_step = True
         elif ans == "s":
             skipping = True
-    indent = ""
-    indent_mat = re.search(r"(\s+)", step)
-    if indent_mat:
-        indent = indent_mat[1]
+    prev_step = -1
+    prev_step_mat = re.search(r"(\d+)", step)
+    if prev_step_mat:
+        prev_step = int(prev_step_mat[1]) - 1
+    time_taken_full = str((datetime.datetime.now() - time_start))
+    time_taken = prettify_date_diff(time_taken_full)
     if was_task_completed:
-        step_status = indent + "    ✅ " + get_dt_now() + "\n"
+        step_status = f"    {get_dt_now()[11:]}  ✅  Done"
     elif skipping:
-        step_status = indent + "    ❌ " + get_dt_now() + " Skipping...\n"
+        step_status = f"    {get_dt_now()[11:]}  ❌  Skipped"
     elif back_one_step:
-        step_status = indent + "    ⬆️  " + get_dt_now() + "\n"
+        step_status = f"    {get_dt_now()[11:]}  ⬆️   Return to {prev_step}."
     else:
-        step_status = "    ??? Unknown status " + get_dt_now()
+        step_status = "    ??? Unknown status. Please create an issue " + get_dt_now()
+    step_status += f"\n     {time_taken}\n"
     print(step_status)
-    completed_steps.append(step + '\n' + step_status)
+    completed_steps.append(step + '\n' + step_status + "\n\n".join(paragraphs))
     return completed_steps, back_one_step
 
 
 def main():
-    hasq = '-q' in sys.argv
     sections = parse_md()
+    print("do[\\n]e ✅\t[s]kip ❌\t[b]ack ⬆️ \t[l]og 💡\t[t]angent ✨\n[h]elp  ❔\t[q]uit 🚪\n")
+
+    hasq = '-q' in sys.argv
+    heading_time_start = datetime.datetime.now()
     text_to_write = ""
     output_file = ""
     top_heading = True
@@ -244,9 +289,9 @@ def main():
         section_str = section + '\n' + '=' * len(section)
         print(section_str, end='')
         if top_heading:
-            print("\n[q]uit 🚪\n")
+            print(f"\n  ⏳ {get_dt_now()}\n")
             section_words = section.split(' ', 1)[1]
-            sect_date = section_words + get_dt_now()
+            sect_date = section_words + ' ' + get_dt_now()
             sect_date = sect_date.replace(' ', '_')
             output_file = re.sub(r"[^A-Za-z0-9-_]", "", sect_date) + ".md"
             top_heading = False
@@ -279,6 +324,12 @@ def main():
         if done_steps:  # Don't create files for headings with no steps
             done_steps = ['\n' + section + '\n'] + done_steps
             text_to_write += '\n'.join(done_steps)
+    heading_time_end = datetime.datetime.now()
+    time_spent_full = str(heading_time_end - heading_time_start)
+    time_spent = prettify_date_diff(time_spent_full)
+    print(f"  ⏳ {get_dt_now()}")
+    offset = ' ' * (13 - len(time_spent))
+    print(f"     Total:{offset}{time_spent}")
     frontmatter = "---"
     for key in user_vars:
         if "personal" not in key:
@@ -297,8 +348,11 @@ def main():
     if not os.path.exists('log'):
         os.makedirs(log_dir, exist_ok=True)
     output_path = os.path.join(log_dir, output_file)
+    print("\n\n[Enter] to save output 💾 | [q] to quit 🚪")
+    getchar()  # will quit on q
     with open(output_path, 'w') as f:
         f.write(text_to_write)
+    print("💾", output_path)
 
 
 def cleanup():  # Remove detritus, esp on ^C

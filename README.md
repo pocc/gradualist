@@ -1,10 +1,12 @@
 # Gradualist
 
-Gradually automate your procedures, one step at a time
+Automate your procedures, one step at a time
 
 Inspired by https://blog.danslimmon.com/2019/07/15/
 
 ## Features
+
+
 
 ### Main Features
 
@@ -60,35 +62,39 @@ Using these words also makes it clearer what you want your user to do.
             the working directory; otherwise a temporary file will be used.
 
    ---
+4. Timing
+    * [ ] Post time started
+    * [ ] Post time ended
 
-4. While: *Loops until condition*
-    Synonyms that trigger: Loop
-    * Format is 'While condition do task'
-    * While condition, keep on doing it
-5. For: *Loops over array*
-    * Format is 'For [el1, el2, ...], do task'
-    * Example: "For ["blue", "orange", "yellow"], use {} marker in your drawing
-    * Generates array-length tasks
-6. If: Conditional
-    Synonym for else: Otherwise, elsewise
-    Synonym for then: First comma
+   ---
+5. If: Conditional
+    Synonym for else: Otherwise, elsewise, if not
+    Synonym for then: First , after if
     * Format is 'if condition then task1 else task2'
     * Example: "if it's sunny, then I'll have a picnic else I'll read a book inside"
         * Variable its_sunny would get a value
-7. Click: *Have the user click somewhere*
+6. While: *Loops until condition*
+    Synonyms that trigger: Loop
+    * Format is 'While condition do task'
+    * While condition, keep on doing it
+7. For: *Loops over array*
+    * Format is 'For [el1, el2, ...], do task'
+    * Example: "For ["blue", "orange", "yellow"], use {} marker in your drawing
+    * Generates array-length tasks
+8. Click: *Have the user click somewhere*
     * This can be automated with clicking with x,y coordinates
     * Use the browser extension to select the element
-8. Select
+9. Select
     * Select from multiple options, usually in a dropdown
     * Use the browser extension to select the element
-9. Open: Open a file or URL
+10. Open: Open a file or URL
     * If opening a URL, default browser will be used
     * Include the words 'with program' to specify which program to open it with (i.e. firefox
       instead of chrome)
     * Include the word 'new' to create a new one if one doesn't exist
-10. Import filepath:task list
+11. Import filepath:task list
     * Include a separate markdown procedure as a sublist of the current task
-11. *Anything Else*
+12. *Anything Else*
     * The point of this is to be as compatible with as many procedures as
       possible, so don't require keywords
     * There won't be any suggestions for automation
@@ -106,6 +112,10 @@ On 100% automated, saves results into a script file instead
     * How long tasks took
     * Whether tasks were completed, skipped, or not done
 
+## Guidance on lists
+
+Lists should be focused on a specific thing. If you need to do every item in the list, they should be related.
+
 ## Todo
 
 ### Shortterm
@@ -116,6 +126,9 @@ On 100% automated, saves results into a script file instead
     * if/then statements
     * Set script variables like timeout, or autofinish after a certain time
 * Configuration in a yaml file
+* [ ] Add the ability to gradualist to suspend a list and save progress. This will mean on the
+command line that you will need to have an option for listing past suspended sessions
+as well as resuming past suspended sessions
 
 ### Longterm
 
