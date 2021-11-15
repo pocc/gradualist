@@ -153,7 +153,7 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
     describe_matches = re.search(r'\d+\. Describe (.*)', step, re.IGNORECASE)
     shell_command = re.search(r'Run[\s\S]*?`\ ?([^`]+)`', step, re.IGNORECASE)
     code_block = re.search(r'Run[\s\S]*?( *)```(.+)([\s\S]+?)```', step)
-    loop_matches = re.search(r'^\s*(\d+\. [Ww]hile .*)[,\n]\s*(.*)(?:[\n,]\s*log(?:ging)? \[(.*)\])?', step)
+    loop_matches = re.search(r'^\s*(\d+\. [Ww]hile .*?)[,\n]\s*([^,\n]*)(?:[\n,]\s*logging \[(.*)\])?', step)
 
     step_number_match = re.match(r"(\d+\.)", step)
     if step_number_match:
@@ -254,7 +254,7 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
             for key in log_data_keys:
                 loop_resp = input(f"        {key}: ")
             if not log_data_keys:
-                loop_resp = input(f"        ")
+                loop_resp = input("        ")
             resp += loop_resp + '\n'
             loop_num += 1
         paragraphs.append(resp)
