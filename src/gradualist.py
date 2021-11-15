@@ -255,7 +255,8 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
                 loop_resp = input(f"        {key}: ")
             if not log_data_keys:
                 loop_resp = input("        ")
-            resp += '    ' + str(loop_num) + '.' + loop_resp + '\n'
+            if loop_resp:
+                resp += '    ' + str(loop_num) + '.' + loop_resp + '\n'
             loop_num += 1
         paragraphs.append(resp)
         print(f"\n    {start}      Started")
