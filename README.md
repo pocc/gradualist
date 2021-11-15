@@ -60,23 +60,20 @@ Using these words also makes it clearer what you want your user to do.
         * `-I` is an arg to python. Include as many options as you want.
         * If an output file is specified with curly braces, it will be saved in
             the working directory; otherwise a temporary file will be used.
-
+4. While: *Loops until condition*
+    Synonyms that trigger: Loop
+    * Format is 'While condition do task'
+    * While condition, keep on doing it
+5. Timing
+    * [X] Post time started
+    * [X] Post time ended
    ---
-4. Timing
-    * [ ] Post time started
-    * [ ] Post time ended
-
-   ---
-5. If: Conditional
+6. If: Conditional
     Synonym for else: Otherwise, elsewise, if not
     Synonym for then: First , after if
     * Format is 'if condition then task1 else task2'
     * Example: "if it's sunny, then I'll have a picnic else I'll read a book inside"
         * Variable its_sunny would get a value
-6. While: *Loops until condition*
-    Synonyms that trigger: Loop
-    * Format is 'While condition do task'
-    * While condition, keep on doing it
 7. For: *Loops over array*
     * Format is 'For [el1, el2, ...], do task'
     * Example: "For ["blue", "orange", "yellow"], use {} marker in your drawing
@@ -127,8 +124,30 @@ Lists should be focused on a specific thing. If you need to do every item in the
     * Set script variables like timeout, or autofinish after a certain time
 * Configuration in a yaml file
 * [ ] Add the ability to gradualist to suspend a list and save progress. This will mean on the
-command line that you will need to have an option for listing past suspended sessions
-as well as resuming past suspended sessions
+    command line that you will need to have an option for listing past suspended sessions
+    as well as resuming past suspended sessions
+* [ ] Have a reminder feature for the next time you do this same task in this task list
+    Something like (Reminder from {date}: {reminder})
+* [ ] Change syntax from {} to ${} and \`\` to $\`\`
+* [ ] If you've done this task more than once, provide statistics of how fast you did this compared to last time (i.e. 50% faster than mean)
+* [ ] Logging should have a newline between the end of the log and the next step
+* [ ] Add log [f]eeling
+* [ ] Add ability to search
+
+```text
+Urgency
+Set with @
+
+Importance
+p0 : Health, Work
+p1  : Chores
+p2   : Fun
+
+Want to do
+w0 : Yes, please
+w1  : Ambivalent
+w2   : DO NOT WANT
+```
 
 ### Longterm
 

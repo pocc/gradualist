@@ -125,7 +125,6 @@ def getchar():
 
 def get_multiline_input():
     """Get multiple lines. Quits on "\n\n" """
-    print("Type \\n\\n when done.\n")
     lines = []
     while True:  # Add lines until \n\n
         print("        ", end='')
@@ -147,12 +146,15 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
 
     for v in user_vars:  # Replace future occurences of user vars
         step = step.replace('{' + v + '}', user_vars[v])
+
     var_matches = re.search('{(.*)}.*?', step)
     question_regex = r'\d+\. ((who|what|when|where|why|how|which) .*)\?'
     question_word_matches = re.search(question_regex, step, re.IGNORECASE)
     describe_matches = re.search(r'\d+\. Describe (.*)', step, re.IGNORECASE)
     shell_command = re.search(r'Run[\s\S]*?`\ ?([^`]+)`', step, re.IGNORECASE)
     code_block = re.search(r'Run[\s\S]*?( *)```(.+)([\s\S]+?)```', step)
+    loop_matches = re.search(r'^\s*(\d+\. [Ww]hile .*)[,\n]\s*(.*)(?:[\n,]\s*log(?:ging)? \[(.*)\])?', step)
+
     step_number_match = re.match(r"(\d+\.)", step)
     if step_number_match:
         step_num = step_number_match[1]
@@ -170,8 +172,11 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
         user_vars[var_name] = value
         was_task_completed = True
     elif describe_matches:
-        print(f"\n{step}")
+        start = get_dt_now()[11:]
+        step_text = f"""{step}        When done hit enter on a newline\n"""
+        print(step_text)
         multiline_input = get_multiline_input()
+        print(f"\n    {start}      Started")
         desc = describe_matches[1].replace(' ', '_').lower()
         desc = re.sub(r"[^A-Za-z0-9_]*", "", desc)
         user_vars[desc] = multiline_input
@@ -229,6 +234,32 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
                 print("Received", output)
             except Exception as e:
                 print("Got exception when trying to run code: ", e)
+    elif loop_matches:
+        start = get_dt_now()[11:]
+        condition = loop_matches[1]
+        task = loop_matches[2]
+        resp = ""
+        log_data_keys = []
+        print(f"{condition}\n    When done hit enter on a newline", end='')
+        if loop_matches[3]:
+            print(f" and on keys [{loop_matches[3]}]\n")
+            log_data_keys = [i.strip() for i in loop_matches[3].split(',')]
+        else:
+            print("\n")
+        loop_resp = "Initial String"
+        loop_num = 1
+        while loop_resp:
+            print(f"    ↪️  {loop_num}. {task}")
+            loop_resp = ""
+            for key in log_data_keys:
+                loop_resp = input(f"        {key}: ")
+            if not log_data_keys:
+                loop_resp = input(f"        ")
+            resp += loop_resp + '\n'
+            loop_num += 1
+        paragraphs.append(resp)
+        print(f"\n    {start}      Started")
+        was_task_completed = True
     else:
         ans = ""
         if not QUIET_FLAG:
@@ -239,16 +270,16 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
                 if ans == 'h':
                     print("Help is on the way...")
                 if ans == 'l':
-                    paragraphs.append("* [ ] " + input("\n    Log a thought\n        "))
-                    print(step_text)
+                    paragraphs.append("* [ ] " + input(f"    {get_dt_now()[11:]}      Log a thought\n        "))
+                    print(f"""    {get_dt_now()[11:]}      Continuing""")
                 if ans == 't':
-                    new_tangent = "* [ ] " + input("\n    What's distracting?\n        ") + "\n"
+                    new_tangent = "* [ ] " + input(f"    {get_dt_now()[11:]}      What's distracting?\n        ") + "\n"
                     home = str(Path.home())
                     tangent_file = os.path.join(home, 'log', 'tangent.md')
                     with open(tangent_file, 'a') as f:
                         f.write(new_tangent)
-                    print("    Added tangent to", tangent_file)
-                    print(step_text)
+                    print("        >>", tangent_file)
+                    print(f"""    {get_dt_now()[11:]}      Continuing""")
         if ans in ['\n', '\r']:
             was_task_completed = True
         elif ans == "b" or ord(ans) == 127:
@@ -282,7 +313,6 @@ def main():
     hasq = '-q' in sys.argv
     heading_time_start = datetime.datetime.now()
     text_to_write = ""
-    output_file = ""
     top_heading = True
     user_vars = {}
     for section in sections:
@@ -290,10 +320,6 @@ def main():
         print(section_str, end='')
         if top_heading:
             print(f"\n  ⏳ {get_dt_now()}\n")
-            section_words = section.split(' ', 1)[1]
-            sect_date = section_words + ' ' + get_dt_now()
-            sect_date = sect_date.replace(' ', '_')
-            output_file = re.sub(r"[^A-Za-z0-9-_]", "", sect_date) + ".md"
             top_heading = False
         else:
             print("\n")
@@ -347,10 +373,11 @@ def main():
     log_dir = os.path.join(home, 'log')
     if not os.path.exists('log'):
         os.makedirs(log_dir, exist_ok=True)
+    output_file = get_dt_now()[:10] + ".md"
     output_path = os.path.join(log_dir, output_file)
     print("\n\n[Enter] to save output 💾 | [q] to quit 🚪")
     getchar()  # will quit on q
-    with open(output_path, 'w') as f:
+    with open(output_path, 'a') as f:
         f.write(text_to_write)
     print("💾", output_path)
 
