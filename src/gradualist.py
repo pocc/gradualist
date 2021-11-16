@@ -147,7 +147,7 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
     for v in user_vars:  # Replace future occurences of user vars
         step = step.replace('{' + v + '}', user_vars[v])
 
-    var_matches = re.search('{(.*)}.*?', step)
+    var_matches = re.search('{(.*)}|(?:the|a|an) (.*?:$)', step)
     question_regex = r'\d+\. ((who|what|when|where|why|how|which) .*)\?'
     question_word_matches = re.search(question_regex, step, re.IGNORECASE)
     describe_matches = re.search(r'\d+\. Describe (.*)', step, re.IGNORECASE)
@@ -256,7 +256,7 @@ def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
             if not log_data_keys:
                 loop_resp = input("        ")
             if loop_resp:
-                resp += '    ' + str(loop_num) + '.' + loop_resp + '\n'
+                resp += '    ' + str(loop_num) + '. ' + loop_resp + '\n'
             loop_num += 1
         paragraphs.append(resp)
         print(f"\n    {start}      Started")
