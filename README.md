@@ -1,12 +1,12 @@
-# Gradualist
+# Gradualist - Gradual lists for automation
 
 Automate your procedures, one step at a time
 
 Inspired by https://blog.danslimmon.com/2019/07/15/
 
+*This is still being built. Expect things to break.*
+
 ## Features
-
-
 
 ### Main Features
 

@@ -3,10 +3,12 @@
 No extension required: $command $file
     python, perl, php, ruby, bash, lua, julia, lisp
 """
+import shlex
 import subprocess as sp
 import re
 import tempfile
 import os
+from typing import List
 
 # Command line flags to run a temp file.
 # Many languages require their file extension
@@ -22,10 +24,19 @@ compile_options = {
 }
 
 
-def run_cmd(compile_args, tempf):
+def run_code_block(cmd_options_str: str, code: str) -> str:
+    try:
+        output_bytes = run_code_snippet(cmd_options_str, code)
+        output = str(output_bytes, encoding='utf8')
+    except Exception as e:
+        output = str(e)
+    print(f"\n\nReceived: `{output}`", flush=True)
+    return output
+
+
+def run_cmd(compile_args: List[str]) -> bytes:
     """Run a command and close the temp file."""
     child = sp.run(compile_args, stdout=sp.PIPE, stderr=sp.PIPE)
-    tempf.close()
     return child.stdout + child.stderr
 
 
@@ -36,10 +47,11 @@ def run_code_snippet(args_str: str, script: str):
         {example.py}: Use this file name in the command
         {}: Replace {} in the command with a temp file
     """
-    tempf = tempfile.NamedTemporaryFile()
+    tempf_path = os.path.join(tempfile.gettempdir(), 'temp')
+    tempf = open(tempf_path, 'w')
     if "{}" in args_str:  # User wants to use a temp file
         args_str.replace("{}", tempf.name)
-    compile_args = args_str.split(' ')
+    compile_args = shlex.split(args_str)
 
     # If we're given only language hint, assume that $language $file will work
     lang = compile_args[0]
@@ -52,7 +64,7 @@ def run_code_snippet(args_str: str, script: str):
             if temp_file:
                 with open(temp_file[1], 'w') as f:
                     f.write(script)
-            args = args_str.split(' ')
+            args = shlex.split(args_str)
             # Compile code as first step
             child = sp.run(args, stdout=sp.PIPE, stderr=sp.PIPE)
             if child.returncode != 0:
@@ -65,20 +77,22 @@ def run_code_snippet(args_str: str, script: str):
             # Issues with java bc java temp works, but not if temp is
             # referred to by its absolute filepath; `java temp.class` fails
             if ' ' in cmd_str:
-                args = cmd_str.split(' ')
+                args = shlex.split(cmd_str)
             else:
                 args = [executable_path]
-            output = run_cmd(args, tempf)
+            output = run_cmd(args)
+            tempf.close()
             return output
         else:
-            tempf.write(bytes(script, encoding='utf8'))
+            tempf.write(script)
             tempf.seek(0)
             compile_args += [tempf.name]  # Run this language against temp file
             if lang in compile_options:
                 compile_str = compile_options[lang][0]
                 compile_str = compile_str.replace('temp', tempf.name)
-                compile_args = compile_str.split(' ')
-            return run_cmd(compile_args, tempf)
+                compile_args = shlex.split(compile_str)
+            tempf.close()
+            return run_cmd(compile_args)
     else:
         files = re.findall(r"{(.*)}", args_str)
         dstfile = ""
@@ -89,8 +103,9 @@ def run_code_snippet(args_str: str, script: str):
             with open(dstfile, 'w') as f:
                 f.write(script)
             args_str = args_str.replace('{' + dstfile + '}', dstfile)
-        cmd = args_str.split(' ')
-        output = run_cmd(cmd, tempf)
+        cmd = shlex.split(args_str)
+        output = run_cmd(cmd)
+        tempf.close()
         if dstfile:
             os.remove(dstfile)
         return output

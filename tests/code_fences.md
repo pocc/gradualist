@@ -2,10 +2,7 @@
 
 ## Test Keywords
 
-1. Enter your name
-expect: "[\w ]*"
-
-2. Run `echo Hello World!`
+1. Run `echo Hello World!`
 expect: "Hello World!\n"
 
 ## Test Code Snippets

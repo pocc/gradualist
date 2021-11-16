@@ -11,16 +11,20 @@ https://support.cloudflare.com/hc/en-us/articles/201720164-Creating-a-Cloudflare
 """
 import re
 import os
-import subprocess as sp
 import datetime
-import getpass
 import sys
-import tty
-import termios
+from typing import Dict, List, Tuple
 import glob
 from pathlib import Path
+from logic.loop import while_loop
 
-from run_code_snippets import run_code_snippet
+from parsers import parse_md
+from steps.get_line import get_text_line
+from steps.get_paragraph import get_text_paragraph
+from steps.run_code_blocks import run_code_block
+from steps.run_shell_cmd import run_shell_cmd
+from steps.verify_done import launch_interrupt
+from utils import prettify_date_diff, getchar, get_dt_now
 
 if len(sys.argv) < 2:
     print("Enter a markdown file to work through (no args detected)")
@@ -34,288 +38,140 @@ else:
     os.system('clear')
 
 
-COMMAND_KEYS = ["\n", "\r", "s", "b", "q"]
+def check_longform(user_vars: Dict[str, str], step: str):
+    """Check if this requires a multiline response. If so, call it"""
+    describe_matches = re.search(r'\d+\. (?:Describe (.*))', step, re.IGNORECASE)
+    if describe_matches:
+        topic = describe_matches[1]
+        new_kv = get_text_paragraph(topic)
+        for k in new_kv:
+            user_vars[k] = new_kv[k]
+    return describe_matches is not None
 
 
-def get_dt_now():
-    return str(datetime.datetime.now())[:19]
-
-
-def prettify_date_diff(date_str):
-    """replace 0 in date diff with ' ', strip mantissa"""
-    time_taken = date_str.split('.')[0]
-    time_taken_mat = re.match(r"^[0:]+", time_taken)
-    if time_taken_mat:
-        zeros = time_taken_mat[0]
-        time_taken = time_taken.replace(zeros, len(zeros) * " ")
-        if time_taken[-1] == " ":
-            time_taken = time_taken[:-1] + "0"
-    return time_taken
-
-
-def parse_md():
-    text = ""
-    for source_md in sys.argv[1:]:
-        source_path = os.path.abspath(source_md)
-        if os.path.exists(source_path):
-            print(source_path, end='\n\n')
-            with open(source_md) as f:
-                text += f.read()
-        else:
-            print("File not found", source_path)
-    text = re.sub(r"\* \[.\]", "1.", text)  # Remove checkboxes
-    text_lines = list(filter(None, text.split('\n')))
-    # {"script name": ["1. instruction", "2. instruction", ...], ...}
-    scripts = {}
-    current_heading = ""
-    current_step = ""
-    sublist_path = ""
-    for line in text_lines:
-        heading_match = re.match(r"(#+ .*)", line)
-        step_match = re.match(r"(\d+\.)( .*)", line)
-        substep_regex = r"(\s+)(\d+\.)( .*)"
-        substep_match = re.match(substep_regex, line)
-        if heading_match:
-            current_heading = heading_match[1]
-            current_step = ""
-            scripts[current_heading] = []
-        elif current_heading and step_match:  # First step, 1.
-            current_step = step_match[1] + step_match[2]
-            sublist_path = step_match[1]
-            scripts[current_heading].append(current_step)
-        elif substep_match:
-            indents = substep_match[1]
-            indent_level = indents.replace('\t', '    ').count('    ')
-            # step 1. under a step 1. becomes 1.1., which is the sublist_path
-            altered_path_list = sublist_path.split('.')[:indent_level]
-            altered_path_list += [substep_match[2]]
-            sublist_path = '.'.join(altered_path_list)
-            sublist_total = sublist_path + substep_match[3]
-            scripts[current_heading].append(sublist_total)
-        # Add to last element in list if in a step
-        elif current_step:
-            scripts[current_heading][-1] += "\n" + line
-
-    return scripts
-
-
-# https://gist.github.com/jasonrdsouza/1901709
-def getchar():
-    # Returns a single character from standard input
-    ch = ''
-    if os.name == 'nt':  # how it works on windows
-        import msvcrt
-        ch = msvcrt.getch()
-    else:
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(sys.stdin.fileno())
-            ch = sys.stdin.read(1)
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    if ord(ch) == 3 or ord(ch) == 4:
-        print(f'^{chr(ord(ch)+64)}')
-        quit()  # handle ctrl+C or ctrl+D
-    if ch.lower() == 'q':
-        print("Exiting...")
-        quit()
-    return ch
-
-
-def get_multiline_input():
-    """Get multiple lines. Quits on "\n\n" """
-    lines = []
-    while True:  # Add lines until \n\n
-        print("        ", end='')
-        line = input()
-        if line:
-            lines.append(line)
-        else:
-            break
-    return '\n'.join(lines)
-
-
-def parse_step(step, user_vars, completed_steps, QUIET_FLAG):
-    was_task_completed = False
-    back_one_step = False
-    skipping = False
-    paragraphs = []
-    step_num = "1."
-    time_start = datetime.datetime.now()
-
-    for v in user_vars:  # Replace future occurences of user vars
-        step = step.replace('{' + v + '}', user_vars[v])
-
-    var_matches = re.search('{(.*)}|(?:the|a|an) (.*?:$)', step)
-    question_regex = r'\d+\. ((who|what|when|where|why|how|which) .*)\?'
-    question_word_matches = re.search(question_regex, step, re.IGNORECASE)
-    describe_matches = re.search(r'\d+\. Describe (.*)', step, re.IGNORECASE)
-    shell_command = re.search(r'Run[\s\S]*?`\ ?([^`]+)`', step, re.IGNORECASE)
-    code_block = re.search(r'Run[\s\S]*?( *)```(.+)([\s\S]+?)```', step)
-    loop_matches = re.search(r'^\s*(\d+\. [Ww]hile .*?)[,\n]\s*([^,\n]*)(?:[\n,]\s*logging \[(.*)\])?', step)
-
-    step_number_match = re.match(r"(\d+\.)", step)
-    if step_number_match:
-        step_num = step_number_match[1]
-    # If someone asks a question, they expect an answer
-    if question_word_matches and not describe_matches:
-        describe_matches = question_word_matches
+def check_oneline(user_vars: Dict[str, str], step: str):
+    """Check if this requires a one line response. If so, call it."""
+    var_matches = re.findall(r'.*(?:\${(.*)}|(?:the|a|an|this|your) (.*?)[:?])', step)
     if var_matches:
-        step = step.replace('{', '').replace('}', '')
-        if "personal" in var_matches[1]:
-            value = getpass.getpass(f"\n{step} ")
-        else:
-            value = input(f"\n{step} ")
-        var_name = var_matches[1].replace(' ', '_').lower()
-        var_name = re.sub(r"[^A-Za-z0-9_]*", "", var_name)
-        user_vars[var_name] = value
-        was_task_completed = True
-    elif describe_matches:
-        start = get_dt_now()[11:]
-        step_text = f"""{step}        When done hit enter on a newline\n"""
-        print(step_text)
-        multiline_input = get_multiline_input()
-        print(f"\n    {start}      Started")
-        desc = describe_matches[1].replace(' ', '_').lower()
-        desc = re.sub(r"[^A-Za-z0-9_]*", "", desc)
-        user_vars[desc] = multiline_input
-        was_task_completed = True
-    elif code_block:
+        var_name = list(filter(None, var_matches[0]))[0]
+        new_kv = get_text_line(step, var_name)
+        for k in new_kv:
+            user_vars[k] = new_kv[k]
+    return len(var_matches) > 0
+
+
+def check_code_block(step: str, CONFIRM_FLAG: bool, paragraphs: List[str]) -> bool:
+    code_block = re.search(r'Run[\s\S]*?( *)```(.+)([\s\S]+?)```', step)
+    if code_block:
         indent = code_block[1]
         cmd_options_str = code_block[2]
-        code = code_block[3]
-        code = code.replace('\n' + indent, '\n')  # Remove md indent
-        # May well have wrong file extension
-        cmd = cmd_options_str.split(' ')
-        code_lines = code.count('\n')
-        ans = ""
-        if not QUIET_FLAG:
-            yn = "                    Enter ✅ | [b]ack ⬆️  | [s]kip ❌ "
-            print(f"{step_num} Run {code_lines} lines of {cmd} {yn} ")
-            ans = getchar()
-        if ans == 's':
-            skipping = True
-        elif ans == "b" or ord(ans) == 127:
-            back_one_step = True
-        if ans in ['\n', '\r'] or QUIET_FLAG:
-            was_task_completed = True
-            try:
-                output = run_code_snippet(cmd_options_str, code)
-                print("Received:", output)
-            except Exception as e:
-                print("Got exception when trying to run code: ", e)
-    elif shell_command:
-        cmd = shell_command[1]
-        # replace shell vars if they are env vars
-        shell_vars = re.findall(r"\$([a-zA-Z_]+)", step)
-        for sv in shell_vars:
-            env_sv = os.getenv(sv)
-            if env_sv:
-                cmd = cmd.replace('$' + sv, env_sv)
+        indented_code = code_block[3]
+        code = indented_code.replace('\n' + indent, '\n')  # Remove md indent
 
-        shell = os.getenv("SHELL")
-        if not shell:
-            shell = "your shell"
-        ans = ""
-        if not QUIET_FLAG:
-            yn = "                    Enter ✅ | [b]ack ⬆️  | [s]kip ❌ "
-            print(f"{step_num} {cmd}\n\n    Run this in {shell} {yn} ")
-            ans = getchar()
-        if ans == 's':
-            skipping = True
-        elif ans == "b" or ord(ans) == 127:
-            back_one_step = True
-        if ans in ['\n', '\r'] or QUIET_FLAG:
-            was_task_completed = True
-            try:
-                child = sp.run(cmd.split(' '), stdout=sp.PIPE, stderr=sp.PIPE)
-                output = child.stdout + child.stderr
-                print("Received", output)
-            except Exception as e:
-                print("Got exception when trying to run code: ", e)
-    elif loop_matches:
-        start = get_dt_now()[11:]
+        if CONFIRM_FLAG:
+            resp = input(f"Run `{cmd_options_str}` against `{code}`? [y/n]")
+            if resp != 'y':
+                return False
+        output = run_code_block(cmd_options_str, code)
+        paragraphs += [cmd_options_str, code, output]
+        return True
+    return False
+
+
+def check_shell_cmd(step: str, CONFIRM_FLAG: bool, paragraphs: List[str]) -> bool:
+    shell_command = re.search(r'Run[\s\S]*?`\ ?([^`]+)`', step, re.IGNORECASE)
+    if shell_command:
+        cmd = shell_command[1]
+        if CONFIRM_FLAG:
+            resp = input(f"Run `{cmd}`? [y/n]")
+            if resp != 'y':
+                return False
+        output = run_shell_cmd(cmd)
+        paragraphs += [cmd, output]
+        return True
+    return False
+
+
+def check_loop(step: str, paragraphs: List[str]) -> str:
+    loop_matches = re.search(r'^\s*(\d+\. [Ww]hile .*?)[,\n]\s*([^,\n]*)(?:[\n,]\s*logging (.+))?', step)
+    if loop_matches:
         condition = loop_matches[1]
         task = loop_matches[2]
-        resp = ""
-        log_data_keys = []
-        print(f"{condition}\n    When done hit enter on a newline", end='')
-        if loop_matches[3]:
-            print(f" and on keys [{loop_matches[3]}]\n")
-            log_data_keys = [i.strip() for i in loop_matches[3].split(',')]
-        else:
-            print("\n")
-        loop_resp = "Initial String"
-        loop_num = 1
-        while loop_resp:
-            print(f"    ↪️  {loop_num}. {task}")
-            loop_resp = ""
-            for key in log_data_keys:
-                loop_resp = input(f"        {key}: ")
-            if not log_data_keys:
-                loop_resp = input("        ")
-            if loop_resp:
-                resp += '    ' + str(loop_num) + '. ' + loop_resp + '\n'
-            loop_num += 1
-        paragraphs.append(resp)
-        print(f"\n    {start}      Started")
-        was_task_completed = True
+        logvars = loop_matches[3]
+        loop_resp, status_char = while_loop(condition, task, logvars)
+        paragraphs += [loop_resp]
+        return status_char
+    return ''
+
+
+def parse_step_delegate(step: str, user_vars: Dict[str, str], CONFIRM_FLAG: bool, paragraphs: List[str]):
+    if check_longform(user_vars, step):
+        return 'w'  # Words
+    if check_code_block(step, CONFIRM_FLAG, paragraphs):
+        return 'w'
+    if check_shell_cmd(step, CONFIRM_FLAG, paragraphs):
+        return 'w'
+    if check_oneline(user_vars, step):
+        return 'w'
+    status_char = check_loop(step, paragraphs)
+    return status_char
+
+
+def parse_step(step: str, user_vars: Dict[str, str], completed_steps: List[str], CONFIRM_FLAG: bool) -> Tuple[List[str], bool]:
+    time_start = datetime.datetime.now()
+    paragraphs: List[str] = []
+    for v in user_vars:  # Replace future occurences of user vars
+        step = step.replace('${' + v + '}', user_vars[v])
+
+    start_text = f"    {get_dt_now()[11:]}      Started "
+    # Add a 2nd newline after the step line for readability
+    step = re.sub(r"^([^\n]*\n) ", r"\1\n ", step)
+    print(step + ' ', end='', flush=True)
+    status_char = parse_step_delegate(step, user_vars, CONFIRM_FLAG, paragraphs)
+
+    if status_char:
+        print(start_text, flush=True)
     else:
-        ans = ""
-        if not QUIET_FLAG:
-            step_text = f"""{step}\n    {get_dt_now()[11:]}      Started"""
-            print(step_text)
-            while ans not in COMMAND_KEYS:
-                ans = getchar()
-                if ans == 'h':
-                    print("Help is on the way...")
-                if ans == 'l':
-                    paragraphs.append("* [ ] " + input(f"    {get_dt_now()[11:]}      Log a thought\n        "))
-                    print(f"""    {get_dt_now()[11:]}      Continuing""")
-                if ans == 't':
-                    new_tangent = "* [ ] " + input(f"    {get_dt_now()[11:]}      What's distracting?\n        ") + "\n"
-                    home = str(Path.home())
-                    tangent_file = os.path.join(home, 'log', 'tangent.md')
-                    with open(tangent_file, 'a') as f:
-                        f.write(new_tangent)
-                    print("        >>", tangent_file)
-                    print(f"""    {get_dt_now()[11:]}      Continuing""")
-        if ans in ['\n', '\r']:
-            was_task_completed = True
-        elif ans == "b" or ord(ans) == 127:
-            back_one_step = True
-        elif ans == "s":
-            skipping = True
+        # Default. yes/no toggle of whether it's done or not
+        print('\n' + start_text, flush=True)
+        log_lines, status_char = launch_interrupt()
+        paragraphs = log_lines
+
+    step_status = get_step_status(time_start, status_char, step)
+    print(step_status, flush=True)
+    completed_steps.append(step + '\n' + step_status + "\n\n".join(paragraphs))
+    return completed_steps, status_char == 'b'
+
+
+def get_step_status(time_start: datetime.datetime, status_char: str, step: str) -> str:
     prev_step = -1
     prev_step_mat = re.search(r"(\d+)", step)
     if prev_step_mat:
         prev_step = int(prev_step_mat[1]) - 1
     time_taken_full = str((datetime.datetime.now() - time_start))
     time_taken = prettify_date_diff(time_taken_full)
-    if was_task_completed:
+    if status_char in ['\r', '\n', 'w']:
         step_status = f"    {get_dt_now()[11:]}  ✅  Done"
-    elif skipping:
+    elif status_char == 's':
         step_status = f"    {get_dt_now()[11:]}  ❌  Skipped"
-    elif back_one_step:
+    elif status_char == 'b':
         step_status = f"    {get_dt_now()[11:]}  ⬆️   Return to {prev_step}."
     else:
         step_status = "    ??? Unknown status. Please create an issue " + get_dt_now()
     step_status += f"\n     {time_taken}\n"
-    print(step_status)
-    completed_steps.append(step + '\n' + step_status + "\n\n".join(paragraphs))
-    return completed_steps, back_one_step
+    return step_status
 
 
 def main():
-    sections = parse_md()
-    print("do[\\n]e ✅\t[s]kip ❌\t[b]ack ⬆️ \t[l]og 💡\t[t]angent ✨\n[h]elp  ❔\t[q]uit 🚪\n")
+    markdown_files = sys.argv[1:]
+    sections = parse_md(markdown_files)
+    print("do[\\n]e ✅\t[s]kip ❌\t[b]ack ⬆️ \t[l]og 💡\t[t]angent ✨\n[h]elp   ❔\t[q]uit 🚪\n")
 
     hasq = '-q' in sys.argv
     heading_time_start = datetime.datetime.now()
     text_to_write = ""
     top_heading = True
-    user_vars = {}
+    user_vars: Dict[str, str] = {}
     for section in sections:
         section_str = section + '\n' + '=' * len(section)
         print(section_str, end='')
@@ -325,7 +181,7 @@ def main():
         else:
             print("\n")
 
-        done_steps = []
+        done_steps: List[str] = []
         i = 0
         step_num = 0
         while i < len(sections[section]):
@@ -377,10 +233,13 @@ def main():
     output_file = get_dt_now()[:10] + ".md"
     output_path = os.path.join(log_dir, output_file)
     print("\n\n[Enter] to save output 💾 | [q] to quit 🚪")
-    getchar()  # will quit on q
+    ch = getchar()  # will quit on q
+    if ch == 'q':
+        print("Quitting...")
+        sys.exit(1)
     with open(output_path, 'a') as f:
         f.write(text_to_write)
-    print("💾", output_path)
+    print("💾 ", output_path)
 
 
 def cleanup():  # Remove detritus, esp on ^C
