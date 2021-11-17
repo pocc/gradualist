@@ -16,6 +16,4 @@ def get_text_line(step: str, var_name: str) -> Dict[str, str]:
         value = getpass.getpass()
     else:
         value = custom_input(False)
-    var_name = var_name.replace(' ', '_').lower()
-    var_name = re.sub(r"[^A-Za-z0-9_]*", "", var_name)
     return {var_name: value}

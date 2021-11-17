@@ -55,3 +55,12 @@ def getchar() -> str:
         print(f'^{chr(ord(ch)+64)}')
         quit()  # handle ctrl+C or ctrl+D
     return ch
+
+
+# https://www.geeksforgeeks.org/viewing-all-defined-variables-in-python/
+def debug_dump_vars():
+    for name in dir():
+        # Print the item if it doesn't start with '__'
+        if not name.startswith('__'):
+            myvalue = eval(name)
+            print(name, "is", type(myvalue), "and is equal to ", myvalue)

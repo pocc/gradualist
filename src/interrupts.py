@@ -2,6 +2,7 @@
 and then return focus back to that task."""
 import os
 from pathlib import Path
+import re
 import sys
 
 from utils import get_dt_now
@@ -52,7 +53,10 @@ def custom_input(second_newline_required: bool) -> str:
                 interrupt_tangent()
             elif status_char in ['b', 's']:
                 return status_char
-        if ord(status_char) == 127:  # Make delete work
+        if ord(status_char) == 127:
+            if len(resp) > 0:
+                resp = resp[:-1]
+            # Make delete work visually (one space back, last char erased)
             sys.stdout.buffer.write(b'\b')
             sys.stdout.buffer.flush()
             sys.stdout.buffer.write(b'\x7f')
@@ -61,5 +65,7 @@ def custom_input(second_newline_required: bool) -> str:
             sys.stdout.buffer.flush()
         else:
             print(status_char, end='', sep='', flush=True)
-        resp += status_char
+            resp += status_char
+    # Get rid of trailing newlines
+    resp = re.sub(r"\n*$", "", resp)
     return resp

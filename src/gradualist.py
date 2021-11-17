@@ -1,4 +1,6 @@
-"""Generate live documentation given markdown files
+"""Gradualist
+
+Generate live documentation given markdown files
 Inspired by do-nothing scripts:
 https://blog.danslimmon.com/2019/07/15/do-nothing-scripting-the-key-to-gradual-automation/
 
@@ -51,8 +53,10 @@ def check_longform(user_vars: Dict[str, str], step: str):
 
 def check_oneline(user_vars: Dict[str, str], step: str):
     """Check if this requires a one line response. If so, call it."""
-    var_matches = re.findall(r'.*(?:\${(.*)}|(?:the|a|an|this|your|to|for) (.*?)[:?])', step)
+    var_matches = re.findall(r'.*(?:\${(.*)}|((?:the|a|an|this|your|to|for) [^{}]*?)[:?])', step)
     if var_matches:
+        # Ask the to define their variable for the first time
+        # Times after this will be static y/n questions
         var_name = list(filter(None, var_matches[0]))[0]
         new_kv = get_text_line(step, var_name)
         for k in new_kv:
@@ -120,8 +124,9 @@ def parse_step_delegate(step: str, user_vars: Dict[str, str], CONFIRM_FLAG: bool
 def parse_step(step: str, user_vars: Dict[str, str], completed_steps: List[str], CONFIRM_FLAG: bool) -> Tuple[List[str], bool]:
     time_start = datetime.datetime.now()
     paragraphs: List[str] = []
-    for v in user_vars:  # Replace future occurences of user vars
+    for v in user_vars:  # Replace future occurences of user vars, both explicit and implicit
         step = step.replace('${' + v + '}', user_vars[v])
+        step = step.replace(v, user_vars[v])
 
     start_text = f"    {get_dt_now()[11:]}      Started "
     # Add a 2nd newline after the step line for readability
