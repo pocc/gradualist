@@ -51,7 +51,7 @@ def check_longform(user_vars: Dict[str, str], step: str):
 
 def check_oneline(user_vars: Dict[str, str], step: str):
     """Check if this requires a one line response. If so, call it."""
-    var_matches = re.findall(r'.*(?:\${(.*)}|(?:the|a|an|this|your) (.*?)[:?])', step)
+    var_matches = re.findall(r'.*(?:\${(.*)}|(?:the|a|an|this|your|to|for) (.*?)[:?])', step)
     if var_matches:
         var_name = list(filter(None, var_matches[0]))[0]
         new_kv = get_text_line(step, var_name)

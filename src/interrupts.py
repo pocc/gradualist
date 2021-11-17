@@ -2,6 +2,7 @@
 and then return focus back to that task."""
 import os
 from pathlib import Path
+import sys
 
 from utils import get_dt_now
 
@@ -44,13 +45,21 @@ def custom_input(second_newline_required: bool) -> str:
         last_char = status_char
         status_char: str = getch.getch()
         if last_char == ',':
-            print('')
+            print('', flush=True)
             if status_char == 'l':
                 interrupt_log()
             elif status_char == 't':
                 interrupt_tangent()
             elif status_char in ['b', 's']:
                 return status_char
+        if ord(status_char) == 127:  # Make delete work
+            sys.stdout.buffer.write(b'\b')
+            sys.stdout.buffer.flush()
+            sys.stdout.buffer.write(b'\x7f')
+            sys.stdout.buffer.flush()
+            sys.stdout.buffer.write(b'\b')
+            sys.stdout.buffer.flush()
+        else:
+            print(status_char, end='', sep='', flush=True)
         resp += status_char
-        print(status_char, end='', sep='', flush=True)
     return resp
