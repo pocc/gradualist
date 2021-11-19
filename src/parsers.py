@@ -7,9 +7,15 @@ so it might make sense to add HTML parsing.
 import os
 import re
 from typing import Dict, List
+import sys
 
 
 def parse_md(files: List[str]) -> Dict[str, List[str]]:
+    for f in files:
+        if not os.path.exists(sys.argv[1]):
+            print(f"Markdown file, {sys.argv[1]}, not found")
+            sys.exit(1)
+
     text = ""
     for source_md in files:
         source_path = os.path.abspath(source_md)

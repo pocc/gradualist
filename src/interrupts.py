@@ -35,17 +35,18 @@ def interrupt_tangent() -> None:
 
 def custom_input(second_newline_required: bool) -> str:
     status_char: str = ""
-    last_char: str = ""
+    prev_char: str = ""
     resp = ""
     """
     Should be false when:
     * both are '\n' and second_newline_required
     * status_char == '\n' and not second_newline_required
     """
-    while not ((status_char == '\n' and last_char == '\n' and second_newline_required) or (status_char == '\n' and not second_newline_required)):
-        last_char = status_char
+    while not ((status_char == '\n' and prev_char == '\n' and second_newline_required) or (status_char == '\n' and not second_newline_required)):
+        prev_prev_char = prev_char
+        prev_char = status_char
         status_char: str = getch.getch()
-        if last_char == ',':
+        if prev_char == ',':
             print('', flush=True)
             if status_char == 'l':
                 interrupt_log()
@@ -63,9 +64,15 @@ def custom_input(second_newline_required: bool) -> str:
             sys.stdout.buffer.flush()
             sys.stdout.buffer.write(b'\b')
             sys.stdout.buffer.flush()
+        elif prev_prev_char and ord(prev_prev_char) == 27:
+            # <-, ^, V, -> arrow keys, ESC, and more report as \x1b, then [, then a capital letter
+            # Getch receives 3 inputs when these keys are pressed which requires a prev_prev_char
+            # Not worth fooling with creating a text editor
+            pass
         else:
             print(status_char, end='', sep='', flush=True)
             resp += status_char
     # Get rid of trailing newlines
     resp = re.sub(r"\n*$", "", resp)
+    print(f"`{resp}`")
     return resp

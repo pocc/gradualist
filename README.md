@@ -1,4 +1,4 @@
-# Gradualist - Gradual lists for automation
+# GraduaList
 
 Automate your procedures, one step at a time
 
@@ -117,6 +117,7 @@ Lists should be focused on a specific thing. If you need to do every item in the
 
 ### Shortterm
 
+* [ ] Store variables in frontmatter if ${} syntax is used. Otherwise, store actual output after question.
 * Separate logic for input, output, and processing
 * Logic
     * loops until step complete
@@ -133,6 +134,8 @@ Lists should be focused on a specific thing. If you need to do every item in the
 * [ ] Logging should have a newline between the end of the log and the next step
 * [ ] Add log [f]eeling
 * [ ] Add ability to search
+* [ ] Save temp files to temp folder
+* [ ] Get visual studio to recognize getch.getch()
 
 ```text
 Urgency

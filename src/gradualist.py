@@ -31,9 +31,6 @@ from utils import prettify_date_diff, getchar, get_dt_now
 if len(sys.argv) < 2:
     print("Enter a markdown file to work through (no args detected)")
     sys.exit(1)
-if not os.path.exists(sys.argv[1]):
-    print(f"Markdown file, {sys.argv[1]}, not found")
-    sys.exit(1)
 if os.name == 'nt':  # clear screen
     os.system('cls')
 else:
@@ -167,9 +164,24 @@ def get_step_status(time_start: datetime.datetime, status_char: str, step: str) 
     return step_status
 
 
+def md_task():
+    """For when you want to reference a markdown task, not a markdown list"""
+    files = sys.argv[1:]
+    i = 0
+    for f in files:
+        files[i] = str(i + 1) + '. ' + f.split('.md')[0]
+    sections = {"CLI task list": files}
+    return sections
+
+
 def main():
-    markdown_files = sys.argv[1:]
-    sections = parse_md(markdown_files)
+    # Markdown file is a task, so treat title of markdown as name of task in a one-task list 
+    if 'task' in sys.argv:
+        sys.argv.remove('task')
+        sections = md_task()
+    else:
+        markdown_files = sys.argv[1:]
+        sections = parse_md(markdown_files)
     print("do[\\n]e ✅\t[s]kip ❌\t[b]ack ⬆️ \t[l]og 💡\t[t]angent ✨\n[h]elp   ❔\t[q]uit 🚪\n")
 
     hasq = '-q' in sys.argv
