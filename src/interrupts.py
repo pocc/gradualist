@@ -17,14 +17,21 @@ def interrupt_help():
 
 def interrupt_log() -> str:
     log_str = input(f"    {get_dt_now()[11:]}      Log a thought\n        ")
-    log_line = "* [ ] " + log_str
+    log_line = get_dt_now()[11:] + log_str
+    print(f"""    {get_dt_now()[11:]}      Continuing""")
+    return log_line
+
+
+def interrupt_do() -> str:
+    log_str = input(f"    {get_dt_now()[11:]}      What do you want to do?\n        ")
+    log_line = "*  [ ] " + get_dt_now()[11:] + " " + log_str
     print(f"""    {get_dt_now()[11:]}      Continuing""")
     return log_line
 
 
 def interrupt_tangent() -> None:
     distraction = input(f"    {get_dt_now()[11:]}      What's distracting?\n        ")
-    new_tangent = f"* [ ] {distraction}\n"
+    new_tangent = f"* [ ] {get_dt_now()} {distraction}\n"
     home = str(Path.home())
     tangent_file = os.path.join(home, 'log', 'tangent.md')
     with open(tangent_file, 'a') as f:
@@ -52,6 +59,8 @@ def custom_input(second_newline_required: bool) -> str:
                 interrupt_log()
             elif status_char == 't':
                 interrupt_tangent()
+            elif status_char == 'd':
+                interrupt_do()
             elif status_char in ['b', 's']:
                 return status_char
         if ord(status_char) == 127:
