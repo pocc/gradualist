@@ -18,7 +18,6 @@ import sys
 from typing import Dict, List, Tuple
 import glob
 from pathlib import Path
-from interrupts import custom_input
 from logic.loop import while_loop
 import subprocess as sp
 
@@ -183,40 +182,62 @@ def main():
     edit_file = todays_date + ".md"
     home_dir = str(Path.home())
     output_dir = os.path.join(home_dir, 'log')
+    gradualist_dir = os.path.join(home_dir, 'gradualist')
 
     if sys.argv[1] == 'task':
         sys.argv.remove('task')
         sections = md_task()
     # We don't know how many sections there will be, so use a while list
     elif sys.argv[1] == 'edit':
-        output_dir = os.path.join(home_dir, 'gradualist')
+
         if len(sys.argv) < 3:
             print("Enter the name of the gradualist you want to edit.\n")
-            print(output_dir + '/')
-            for i in os.listdir(output_dir)[:10]:
+            # Try to help the user find the file they're looking for
+            print(gradualist_dir + '/')
+            gradualist_files = os.listdir(gradualist_dir)
+            for i in gradualist_files[:10]:
                 print('    ' + i)
-            if len(os.listdir(output_dir)) >= 10:
+            if len(os.listdir(gradualist_dir)) >= 10:
                 print('...')
             print()
             sys.exit(1)
-        edit_file = sys.argv[1]
+        edit_file = ' '.join(sys.argv[2:])
         if not edit_file.endswith('.md'):
             edit_file += '.md'
+        edit_file_path = os.path.join(gradualist_dir, edit_file)
         sys.argv.remove('edit')
         if 'EDITOR' in os.environ:
-            text_editor = os.environ['SHELL']
+            text_editor = os.environ['EDITOR']
         else:
             if os.name == 'nt':
                 text_editor = "notepad.exe"
             else:
                 text_editor = "vi"
-        sp.call([text_editor, edit_file])
+        sp.call([text_editor, edit_file_path])
+        sys.exit(0)
+    elif sys.argv[1] == 'show':
+        print(gradualist_dir + '/')
+        gradualist_files = os.listdir(gradualist_dir)
+        if len(sys.argv) > 2:
+            # Assume the third arg is a regex or the name of the file
+            search_term = ' '.join(sys.argv[2:])
+            try:
+                compiled = re.compile(search_term, re.IGNORECASE)
+                gradualist_files = [f for f in gradualist_files if re.match(compiled, f)]
+            except re.error:
+                gradualist_files = [f for f in gradualist_files if f.startswith(search_term)]
+        for i in sorted(gradualist_files):
+            print('    ' + i)
+        print()
         sys.exit(0)
 
     else:
         markdown_files = sys.argv[1:]
         sections: Dict[str, List[str]] = {}
         for md_path in markdown_files:
+            # If it's not a markdown file, treat it like `espanso edit`, where directory is assumed
+            if not md_path.endswith('.md'):
+                md_path = os.path.join(gradualist_dir, md_path + '.md')
             source_path = os.path.abspath(md_path)
             if os.path.exists(source_path):
                 print(source_path, end='\n\n')
