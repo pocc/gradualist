@@ -18,7 +18,9 @@ import sys
 from typing import Dict, List, Tuple
 import glob
 from pathlib import Path
+from interrupts import custom_input
 from logic.loop import while_loop
+import subprocess as sp
 
 from parsers import parse_md
 from steps.get_line import get_text_line
@@ -31,10 +33,6 @@ from utils import prettify_date_diff, getchar, get_dt_now
 if len(sys.argv) < 2:
     print("Enter a markdown file to work through (no args detected)")
     sys.exit(1)
-if os.name == 'nt':  # clear screen
-    os.system('cls')
-else:
-    os.system('clear')
 
 
 def check_longform(user_vars: Dict[str, str], step: str):
@@ -93,29 +91,30 @@ def check_shell_cmd(step: str, CONFIRM_FLAG: bool, paragraphs: List[str]) -> boo
     return False
 
 
-def check_loop(step: str, paragraphs: List[str]) -> str:
+def check_loop(step: str, paragraphs: List[str]) -> bool:
     loop_matches = re.search(r'^\s*(\d+\. [Ww]hile .*?)[,\n]\s*([^,\n]*)(?:[\n,]\s*logging (.+))?', step)
     if loop_matches:
         condition = loop_matches[1]
         task = loop_matches[2]
         logvars = loop_matches[3]
-        loop_resp, status_char = while_loop(condition, task, logvars)
+        loop_resp = while_loop(condition, task, logvars)
         paragraphs += [loop_resp]
-        return status_char
-    return ''
+        return True
+    return False
 
 
-def parse_step_delegate(step: str, user_vars: Dict[str, str], CONFIRM_FLAG: bool, paragraphs: List[str]):
-    if check_longform(user_vars, step):
-        return 'w'  # Words
+def parse_step_delegate(step: str, user_vars: Dict[str, str], CONFIRM_FLAG: bool, paragraphs: List[str]) -> str:
+    if check_loop(step, paragraphs):
+        return 'w'
     if check_code_block(step, CONFIRM_FLAG, paragraphs):
         return 'w'
     if check_shell_cmd(step, CONFIRM_FLAG, paragraphs):
         return 'w'
+    if check_longform(user_vars, step):
+        return 'w'  # Words
     if check_oneline(user_vars, step):
         return 'w'
-    status_char = check_loop(step, paragraphs)
-    return status_char
+    return ''
 
 
 def parse_step(step: str, user_vars: Dict[str, str], completed_steps: List[str], CONFIRM_FLAG: bool) -> Tuple[List[str], bool]:
@@ -128,7 +127,11 @@ def parse_step(step: str, user_vars: Dict[str, str], completed_steps: List[str],
     start_text = f"    {get_dt_now()[11:]}      Started "
     # Add a 2nd newline after the step line for readability
     step = re.sub(r"^([^\n]*\n) ", r"\1\n ", step)
-    print(step + ' ', end='', flush=True)
+    step_to_print = step
+    is_while_loop = re.search(r'^\s*\d+\. [Ww]hile.*?,', step_to_print)
+    if is_while_loop:
+        step_to_print = step_to_print.split(',')[0] + ',         When done hit enter twice'
+    print(step_to_print + ' ', end='', flush=True)
     status_char = parse_step_delegate(step, user_vars, CONFIRM_FLAG, paragraphs)
 
     if status_char:
@@ -175,13 +178,57 @@ def md_task():
 
 
 def main():
-    # Markdown file is a task, so treat title of markdown as name of task in a one-task list 
-    if 'task' in sys.argv:
+    # Markdown file is a task, so treat title of markdown as name of task in a one-task list
+    todays_date = get_dt_now()[:10]
+    edit_file = todays_date + ".md"
+    home_dir = str(Path.home())
+    output_dir = os.path.join(home_dir, 'log')
+
+    if sys.argv[1] == 'task':
         sys.argv.remove('task')
         sections = md_task()
+    # We don't know how many sections there will be, so use a while list
+    elif sys.argv[1] == 'edit':
+        output_dir = os.path.join(home_dir, 'gradualist')
+        if len(sys.argv) < 3:
+            print("Enter the name of the gradualist you want to edit.\n")
+            print(output_dir + '/')
+            for i in os.listdir(output_dir)[:10]:
+                print('    ' + i)
+            if len(os.listdir(output_dir)) >= 10:
+                print('...')
+            print()
+            sys.exit(1)
+        edit_file = sys.argv[1]
+        if not edit_file.endswith('.md'):
+            edit_file += '.md'
+        sys.argv.remove('edit')
+        if 'EDITOR' in os.environ:
+            text_editor = os.environ['SHELL']
+        else:
+            if os.name == 'nt':
+                text_editor = "notepad.exe"
+            else:
+                text_editor = "vi"
+        sp.call([text_editor, edit_file])
+        sys.exit(0)
+
     else:
         markdown_files = sys.argv[1:]
-        sections = parse_md(markdown_files)
+        sections: Dict[str, List[str]] = {}
+        for md_path in markdown_files:
+            source_path = os.path.abspath(md_path)
+            if os.path.exists(source_path):
+                print(source_path, end='\n\n')
+                sections = {**sections, **parse_md(source_path)}
+            else:
+                print(f"Markdown file, {source_path}, not found")
+                sys.exit(1)
+
+    if os.name == 'nt':  # clear screen
+        os.system('cls')
+    else:
+        os.system('clear')
     print("do[\\n]e ✅\t[s]kip ❌\t[b]ack ⬆️ \t[l]og 💡\t[t]angent ✨\n[h]elp   ❔\t[q]uit 🚪\n")
 
     hasq = '-q' in sys.argv
@@ -241,14 +288,12 @@ def main():
             else:
                 frontmatter += f"\"{data}\""
     frontmatter += "\n---\n"
-    text_to_write = frontmatter + text_to_write
+    if user_vars:  # Only add frontmatter if it exists
+        text_to_write = frontmatter + text_to_write
 
-    home = str(Path.home())
-    log_dir = os.path.join(home, 'log')
-    if not os.path.exists('log'):
-        os.makedirs(log_dir, exist_ok=True)
-    output_file = get_dt_now()[:10] + ".md"
-    output_path = os.path.join(log_dir, output_file)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, edit_file)
     print("\n\n[Enter] to save output 💾 | [q] to quit 🚪")
     ch = getchar()  # will quit on q
     if ch == 'q':

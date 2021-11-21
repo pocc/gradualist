@@ -1,14 +1,11 @@
 """While loop starts with the word `while`
 And allows iteration on the same task
 """
-from typing import Tuple
-
 from interrupts import custom_input
 
 
-def while_loop(_: str, task: str, logvars: str) -> Tuple[str, str]:
+def while_loop(_: str, task: str, logvars: str) -> str:
     resp = ""
-    status_char = ''
     log_data_keys = []
     print('\n')
     if logvars:
@@ -22,9 +19,10 @@ def while_loop(_: str, task: str, logvars: str) -> Tuple[str, str]:
             print(f"        {key}: ", end='', sep='', flush=True)
             loop_resp = custom_input(False)
         if not log_data_keys:
-            print("        ")
+            print("        ", sep='', end='', flush=True)
             loop_resp = custom_input(False)
         if loop_resp:
             resp += '    ' + str(loop_num) + '. ' + loop_resp + '\n'
+        print()
         loop_num += 1
-    return resp, status_char
+    return resp

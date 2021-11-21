@@ -4,27 +4,13 @@ Currently supports markdown. With pandoc, it could support
 an arbitrary numbuer of formats. That requires a dependency tho,
 so it might make sense to add HTML parsing.
 """
-import os
 import re
 from typing import Dict, List
-import sys
 
 
-def parse_md(files: List[str]) -> Dict[str, List[str]]:
-    for f in files:
-        if not os.path.exists(sys.argv[1]):
-            print(f"Markdown file, {sys.argv[1]}, not found")
-            sys.exit(1)
-
-    text = ""
-    for source_md in files:
-        source_path = os.path.abspath(source_md)
-        if os.path.exists(source_path):
-            print(source_path, end='\n\n')
-            with open(source_md) as f:
-                text += f.read()
-        else:
-            print("File not found", source_path)
+def parse_md(source_md: str) -> Dict[str, List[str]]:
+    with open(source_md) as f:
+        text = f.read()
     text = re.sub(r"\* \[.\]", "1.", text)  # Remove checkboxes
     text_lines = list(filter(None, text.split('\n')))
     # {"script name": ["1. instruction", "2. instruction", ...], ...}
