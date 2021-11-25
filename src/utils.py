@@ -14,12 +14,14 @@ def get_dt_now():
 def prettify_date_diff(date_str: str) -> str:
     """replace 0 in date diff with ' ', strip mantissa"""
     time_taken = date_str.split('.')[0]
-    time_taken_mat = re.match(r"^[0:]+", time_taken)
-    if time_taken_mat:
-        zeros = time_taken_mat[0]
-        time_taken = time_taken.replace(zeros, len(zeros) * " ")
-        if time_taken[-1] == " ":
-            time_taken = time_taken[:-1] + "0"
+    print('asontehua', time_taken)
+    i = 0
+    while time_taken[0] in [':', '0']:
+        time_taken = time_taken[1:]
+        i += 1
+    time_taken = " " * i + time_taken
+    if time_taken[-1] == " ":
+        time_taken = time_taken[:-1] + "0"
     return time_taken
 
 

@@ -24,7 +24,7 @@ first word keywords:
         - `Open`
 
 delimiter keywords:
-    - `{`
+    - `${`
     - `}`
     - `not`
     - `:`
@@ -33,9 +33,9 @@ delimiter keywords:
 
 ## Variables
 
-1. {A variable} is `[^\n\r]+` inside of curly brackets
+1. ${A variable} is `[^\n\r]+` inside of curly brackets, like javascript
 2. For specifying variable type
-    1. with typescript types {it is sunny outside: bool}
+    1. with typescript types ${it is sunny outside: bool}
     2. with your own regex {email address: '\S+@\S+.\S+'}
 3. Variables can be stored in the frontmatter of the runbook
 4. Variables are read and compared case-insensitive, but stored and written lowercase

@@ -44,6 +44,16 @@ def custom_input(second_newline_required: bool) -> str:
     status_char: str = ""
     prev_char: str = ""
     resp = ""
+
+    def delete_last_char():
+        # Make delete work visually (one space back, last char erased)
+        sys.stdout.buffer.write(b'\b')
+        sys.stdout.buffer.flush()
+        sys.stdout.buffer.write(b'\x7f')
+        sys.stdout.buffer.flush()
+        sys.stdout.buffer.write(b'\b')
+        sys.stdout.buffer.flush()
+
     """
     Should be false when:
     * both are '\n' and second_newline_required
@@ -54,6 +64,7 @@ def custom_input(second_newline_required: bool) -> str:
         prev_char = status_char
         status_char: str = getch.getch()
         if prev_char == ',':
+            delete_last_char()
             print('', flush=True)
             if status_char == 'l':
                 interrupt_log()
@@ -66,13 +77,7 @@ def custom_input(second_newline_required: bool) -> str:
         if ord(status_char) == 127:
             if len(resp) > 0:
                 resp = resp[:-1]
-                # Make delete work visually (one space back, last char erased)
-                sys.stdout.buffer.write(b'\b')
-                sys.stdout.buffer.flush()
-                sys.stdout.buffer.write(b'\x7f')
-                sys.stdout.buffer.flush()
-                sys.stdout.buffer.write(b'\b')
-                sys.stdout.buffer.flush()
+                delete_last_char()
         elif prev_prev_char and ord(prev_prev_char) == 27:
             # <-, ^, V, -> arrow keys, ESC, and more report as \x1b, then [, then a capital letter
             # Getch receives 3 inputs when these keys are pressed which requires a prev_prev_char

@@ -20,7 +20,7 @@ Inspired by https://blog.danslimmon.com/2019/07/15/
 * 1 runbook <=> 1 markdown file
 * Directions should be in readable English
 
-## Ancillary features
+### Ancillary features
 
 * Sublists are marked like 1.1.3 (first step, first substep, third sub-substep)
 * Go back one step
@@ -36,25 +36,6 @@ Inspired by https://blog.danslimmon.com/2019/07/15/
 ## Todo
 
 ### Shortterm
-
-* [ ] Store variables in frontmatter if ${} syntax is used. Otherwise, store actual output after question.
-* Separate logic for input, output, and processing
-* Logic
-    * if/then statements
-    * Set script variables like timeout, or autofinish after a certain time
-* Configuration in a yaml file
-* [ ] Add the ability to gradualist to suspend a list and save progress. This will mean on the
-    command line that you will need to have an option for listing past suspended sessions
-    as well as resuming past suspended sessions
-* [ ] Have a reminder feature for the next time you do this same task in this task list
-    Something like (Reminder from {date}: {reminder})
-* [ ] Change syntax from \`\` to $\`\`
-* [ ] If you've done this task more than once, provide statistics of how fast you did this compared to last time (i.e. 50% faster than mean)
-* [ ] Logging should have a newline between the end of the log and the next step
-* [ ] Add log [f]eeling
-* [ ] Add ability to search
-* [ ] Save temp files to temp folder
-* [ ] Get visual studio to recognize getch.getch()
 
 ### Longterm
 

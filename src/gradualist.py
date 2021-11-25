@@ -217,7 +217,7 @@ def main():
         sys.exit(0)
     elif sys.argv[1] == 'show':
         print(gradualist_dir + '/')
-        gradualist_files = os.listdir(gradualist_dir)
+        gradualist_files = [os.path.join(dp, f).split(gradualist_dir)[1] for dp, _, filenames in os.walk(gradualist_dir) for f in filenames]
         if len(sys.argv) > 2:
             # Assume the third arg is a regex or the name of the file
             search_term = ' '.join(sys.argv[2:])
