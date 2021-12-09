@@ -63,7 +63,7 @@ def custom_input(second_newline_required: bool) -> str:
         prev_prev_char = prev_char
         prev_char = status_char
         status_char: str = getch.getch()
-        if prev_char == ',':
+        if prev_char == ',' and status_char in 'ltdbs':
             delete_last_char()
             print('', flush=True)
             if status_char == 'l':
