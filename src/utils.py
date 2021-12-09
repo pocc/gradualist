@@ -1,6 +1,5 @@
 import datetime
 import os
-import re
 import sys
 import tty
 import termios
@@ -14,9 +13,8 @@ def get_dt_now():
 def prettify_date_diff(date_str: str) -> str:
     """replace 0 in date diff with ' ', strip mantissa"""
     time_taken = date_str.split('.')[0]
-    print('asontehua', time_taken)
     i = 0
-    while time_taken[0] in [':', '0']:
+    while len(time_taken) > 0 and time_taken[0] in [':', '0']:
         time_taken = time_taken[1:]
         i += 1
     time_taken = " " * i + time_taken

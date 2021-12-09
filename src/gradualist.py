@@ -36,9 +36,10 @@ if len(sys.argv) < 2:
 
 def check_longform(user_vars: Dict[str, str], step: str):
     """Check if this requires a multiline response. If so, call it"""
-    describe_matches = re.search(r'\d+\. (?:Describe (.*))', step, re.IGNORECASE)
+    describe_matches = re.search(r'\d+\. (?:Describe (.*?)|(.*)[:?])', step, re.IGNORECASE)
     if describe_matches:
-        topic = describe_matches[1]
+        # Find whichever of the matches exists
+        topic = list(filter(None, [describe_matches[1], describe_matches[2]]))[0]
         new_kv = get_text_paragraph(topic)
         for k in new_kv:
             user_vars[k] = new_kv[k]
@@ -47,7 +48,7 @@ def check_longform(user_vars: Dict[str, str], step: str):
 
 def check_oneline(user_vars: Dict[str, str], step: str):
     """Check if this requires a one line response. If so, call it."""
-    var_matches = re.findall(r'.*(?:\${(.*)}|((?:the|a|an|this|your|to|for) [^{}]*?)[:?])', step)
+    var_matches = re.findall(r'.*(?:\${(.*)}|((?:the|a|an|this|your) [^{} ]*?)[:?])', step)
     if var_matches:
         # Ask the to define their variable for the first time
         # Times after this will be static y/n questions
